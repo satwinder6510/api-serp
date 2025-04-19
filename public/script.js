@@ -4,27 +4,27 @@ document.addEventListener("DOMContentLoaded", () => {
   let multiCityLegs = [];
 
   function createLegInput(index) {
-    return \`
+    return `
       <div class="flex gap-4 items-center mb-2">
-        <input name="multi_departure_\${index}" placeholder="From (IATA)" class="border p-2 rounded flex-1" required />
-        <input name="multi_arrival_\${index}" placeholder="To (IATA)" class="border p-2 rounded flex-1" required />
-        <input name="multi_date_\${index}" type="date" class="border p-2 rounded" required />
+        <input name="multi_departure_${index}" placeholder="From (IATA)" class="border p-2 rounded flex-1" required />
+        <input name="multi_arrival_${index}" placeholder="To (IATA)" class="border p-2 rounded flex-1" required />
+        <input name="multi_date_${index}" type="date" class="border p-2 rounded" required />
         <button type="button" class="text-red-600" onclick="this.parentElement.remove()">✕</button>
       </div>
-    \`;
+    `;
   }
 
   function renderTripFields(type) {
     if (type === "2") {
-      tripFields.innerHTML = \`
+      tripFields.innerHTML = `
         <div class="flex gap-4">
           <input name="departure_id" placeholder="From (IATA)" class="border p-2 rounded flex-1" required />
           <input name="arrival_id" placeholder="To (IATA)" class="border p-2 rounded flex-1" required />
         </div>
         <input name="outbound_date" type="date" class="w-full border p-2 rounded" required />
-      \`;
+      `;
     } else if (type === "1") {
-      tripFields.innerHTML = \`
+      tripFields.innerHTML = `
         <div class="flex gap-4">
           <input name="departure_id" placeholder="From (IATA)" class="border p-2 rounded flex-1" required />
           <input name="arrival_id" placeholder="To (IATA)" class="border p-2 rounded flex-1" required />
@@ -33,13 +33,13 @@ document.addEventListener("DOMContentLoaded", () => {
           <input name="outbound_date" type="date" class="flex-1 border p-2 rounded" required />
           <input name="return_date" type="date" class="flex-1 border p-2 rounded" required />
         </div>
-      \`;
+      `;
     } else if (type === "3") {
       multiCityLegs = [0];
-      tripFields.innerHTML = \`
-        <div id="multiCityContainer">\${createLegInput(0)}</div>
+      tripFields.innerHTML = `
+        <div id="multiCityContainer">${createLegInput(0)}</div>
         <button type="button" id="addLeg" class="text-sm text-blue-600 mt-2 underline">+ Add Leg</button>
-      \`;
+      `;
 
       document.getElementById("addLeg").onclick = () => {
         const newIndex = multiCityLegs.length;
@@ -49,14 +49,16 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // Initial render
-  renderTripFields("2");
+  // ✅ Initial render — uses whichever radio is selected
+  const selectedType = form.querySelector('input[name="type"]:checked')?.value || "2";
+  renderTripFields(selectedType);
 
-  // Update fields when type changes
-  form.type.forEach(radio =>
+  // ✅ Listen for radio button changes
+  document.querySelectorAll('input[name="type"]').forEach(radio =>
     radio.addEventListener("change", e => renderTripFields(e.target.value))
   );
 
+  // ✅ Handle form submit without reloading page
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     const formData = new FormData(form);
@@ -71,9 +73,9 @@ document.addEventListener("DOMContentLoaded", () => {
     if (type === "3") {
       const multiCity = [];
       for (const index of multiCityLegs) {
-        const from = formData.get(\`multi_departure_\${index}\`);
-        const to = formData.get(\`multi_arrival_\${index}\`);
-        const date = formData.get(\`multi_date_\${index}\`);
+        const from = formData.get(`multi_departure_${index}`);
+        const to = formData.get(`multi_arrival_${index}`);
+        const date = formData.get(`multi_date_${index}`);
         if (from && to && date) {
           multiCity.push({ departure_id: from, arrival_id: to, date });
         }
@@ -82,14 +84,15 @@ document.addEventListener("DOMContentLoaded", () => {
       params.append("multi_city_json", encodeURIComponent(JSON.stringify(multiCity)));
     } else {
       for (const [key, val] of formData.entries()) {
-        params.append(key, val);
+        if (key !== "type") {
+          params.append(key, val);
+        }
       }
+      params.append("type", type);
     }
 
-    url += params.toString();
-
     try {
-      const res = await fetch(url);
+      const res = await fetch(`/api/flights?${params.toString()}`);
       const data = await res.json();
       if (!data.best_flights || data.best_flights.length === 0) {
         results.innerHTML = "<p>No flights found.</p>";
@@ -98,14 +101,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
       results.innerHTML = data.best_flights.map((flight) => {
         const f = flight.flights[0];
-        return \`
+        return `
           <div class="p-4 border rounded shadow">
-            <p><strong>\${f.airline}</strong> (\${f.flight_number}) - \${f.airplane}</p>
-            <p>\${f.departure_airport.name} → \${f.arrival_airport.name}</p>
-            <p>Departs: \${f.departure_airport.time}, Arrives: \${f.arrival_airport.time}</p>
-            <p>Duration: \${flight.total_duration} min | Price: £\${flight.price}</p>
+            <p><strong>${f.airline}</strong> (${f.flight_number}) - ${f.airplane}</p>
+            <p>${f.departure_airport.name} → ${f.arrival_airport.name}</p>
+            <p>Departs: ${f.departure_airport.time}, Arrives: ${f.arrival_airport.time}</p>
+            <p>Duration: ${flight.total_duration} min | Price: £${flight.price}</p>
           </div>
-        \`;
+        `;
       }).join("");
     } catch (err) {
       results.innerHTML = "<p>Error fetching flight data.</p>";
