@@ -80,9 +80,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const params = new URLSearchParams({
           type: "3",
-          multi_city_json: JSON.stringify(multiCity),
           ...commonParams,
         });
+
+        // 👇 Do NOT encode JSON string
+        params.append("multi_city_json", JSON.stringify(multiCity));
 
         const res = await fetch(`/api/flights?${params.toString()}`);
         const data = await res.json();
@@ -110,6 +112,7 @@ document.addEventListener("DOMContentLoaded", () => {
           : "<p>No one-way flights found.</p>";
 
       } else if (type === "1") {
+        // Round-trip via two one-way requests
         const outboundParams = new URLSearchParams({
           type: "2",
           departure_id: formData.get("departure_id"),
