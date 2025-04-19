@@ -78,7 +78,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       }
       params.append("type", "3");
-      params.append("multi_city_json", encodeURIComponent(JSON.stringify(multiCity)));
+      params.append("multi_city_json", JSON.stringify(multiCity)); // ✅ FIXED (no encodeURIComponent)
     } else {
       for (const [key, val] of formData.entries()) {
         params.append(key, val);
@@ -86,6 +86,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     url += params.toString();
+    console.log("→ Fetching:", url); // Optional debug log
 
     try {
       const res = await fetch(url);
@@ -109,8 +110,8 @@ document.addEventListener("DOMContentLoaded", () => {
         `;
       }).join("");
     } catch (err) {
-      results.innerHTML = "<p>Error fetching flight data.</p>";
-      console.error(err);
+      results.innerHTML = "<p class='text-red-500'>Error fetching flight data.</p>";
+      console.error("Fetch error:", err);
     }
   });
 });
