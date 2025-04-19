@@ -49,16 +49,13 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // ✅ Initial render — uses whichever radio is selected
   const selectedType = form.querySelector('input[name="type"]:checked')?.value || "2";
   renderTripFields(selectedType);
 
-  // ✅ Listen for radio button changes
   document.querySelectorAll('input[name="type"]').forEach(radio =>
     radio.addEventListener("change", e => renderTripFields(e.target.value))
   );
 
-  // ✅ Handle form submit without reloading page
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     const formData = new FormData(form);
@@ -100,13 +97,18 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       results.innerHTML = data.best_flights.map((flight) => {
-        const f = flight.flights[0];
         return `
-          <div class="p-4 border rounded shadow">
-            <p><strong>${f.airline}</strong> (${f.flight_number}) - ${f.airplane}</p>
-            <p>${f.departure_airport.name} → ${f.arrival_airport.name}</p>
-            <p>Departs: ${f.departure_airport.time}, Arrives: ${f.arrival_airport.time}</p>
-            <p>Duration: ${flight.total_duration} min | Price: £${flight.price}</p>
+          <div class="p-4 border rounded shadow space-y-2">
+            ${flight.flights.map((f, i) => `
+              <div class="border-b pb-2">
+                <p class="font-semibold">${i === 0 ? "Outbound" : "Return"} Flight</p>
+                <p><strong>${f.airline}</strong> (${f.flight_number}) - ${f.airplane}</p>
+                <p>${f.departure_airport.name} → ${f.arrival_airport.name}</p>
+                <p>Departs: ${f.departure_airport.time}, Arrives: ${f.arrival_airport.time}</p>
+              </div>
+            `).join("")}
+            <p class="mt-2">Total Duration: ${flight.total_duration} min</p>
+            <p class="font-bold text-green-700">Price: £${flight.price}</p>
           </div>
         `;
       }).join("");
