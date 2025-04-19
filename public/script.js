@@ -91,12 +91,16 @@ document.addEventListener("DOMContentLoaded", () => {
     try {
       const res = await fetch(`/api/flights?${params.toString()}`);
       const data = await res.json();
-      if (!data.best_flights || data.best_flights.length === 0) {
+
+      // ✅ Use best_flights first, fallback to other_flights
+      const flights = data.best_flights?.length ? data.best_flights : data.other_flights;
+
+      if (!flights || flights.length === 0) {
         results.innerHTML = "<p>No flights found.</p>";
         return;
       }
 
-      results.innerHTML = data.best_flights.map((flight) => {
+      results.innerHTML = flights.map((flight) => {
         return `
           <div class="p-4 border rounded shadow space-y-2">
             ${flight.flights.map((f, i) => `
@@ -112,6 +116,7 @@ document.addEventListener("DOMContentLoaded", () => {
           </div>
         `;
       }).join("");
+
     } catch (err) {
       results.innerHTML = "<p>Error fetching flight data.</p>";
       console.error(err);
