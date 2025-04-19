@@ -78,7 +78,8 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       }
       params.append("type", "3");
-      params.append("multi_city_json", JSON.stringify(multiCity)); // ✅ FIXED (no encodeURIComponent)
+      params.append("multi_city_json", encodeURIComponent(JSON.stringify(multiCity)));
+ // ✅ FIXED (no encodeURIComponent)
     } else {
       for (const [key, val] of formData.entries()) {
         params.append(key, val);
