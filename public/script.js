@@ -6,59 +6,105 @@ form.addEventListener("submit", async (e) => {
   const results = document.getElementById("results");
   results.innerHTML = "Loading...";
 
-  let url = "/api/flights?";
-  const params = new URLSearchParams();
-
-  // Common flags for all trip types
-  params.append("deep_search", "true");
-  params.append("show_hidden", "true");
-  params.append("gl", "UK");
-  params.append("hl", "EN");
-  params.append("currency", "GBP");
-
-  if (type === "3") {
-    const multiCity = [];
-    for (const index of multiCityLegs) {
-      const from = formData.get(`multi_departure_${index}`);
-      const to = formData.get(`multi_arrival_${index}`);
-      const date = formData.get(`multi_date_${index}`);
-      if (from && to && date) {
-        multiCity.push({ departure_id: from, arrival_id: to, date });
-      }
-    }
-    params.append("type", "3");
-    params.append("multi_city_json", JSON.stringify(multiCity));
-  } else {
-    for (const [key, val] of formData.entries()) {
-      params.append(key, val);
-    }
-  }
-
-  url += params.toString();
-  console.log("→ Fetching:", url);
+  const commonParams = {
+    deep_search: "true",
+    show_hidden: "true",
+    gl: "UK",
+    hl: "EN",
+    currency: "GBP",
+  };
 
   try {
-    const res = await fetch(url);
+    let allResultsHTML = "";
 
-    if (!res.ok) {
-      throw new Error(`HTTP error! status: ${res.status}`);
+    if (type === "3") {
+      const multiCity = [];
+      for (const index of multiCityLegs) {
+        const from = formData.get(`multi_departure_${index}`);
+        const to = formData.get(`multi_arrival_${index}`);
+        const date = formData.get(`multi_date_${index}`);
+        if (from && to && date) {
+          multiCity.push({ departure_id: from, arrival_id: to, date });
+        }
+      }
+
+      const params = new URLSearchParams({
+        type: "3",
+        multi_city_json: JSON.stringify(multiCity),
+        ...commonParams,
+      });
+
+      const res = await fetch(`/api/flights?${params.toString()}`);
+      const data = await res.json();
+      const flights = data.best_flights?.length ? data.best_flights : data.other_flights || [];
+
+      allResultsHTML = flights.length
+        ? renderFlightCards(flights, "Multi-City Itinerary")
+        : "<p>No multi-city flights found.</p>";
+
+    } else if (type === "2") {
+      const params = new URLSearchParams({
+        type: "2",
+        departure_id: formData.get("departure_id"),
+        arrival_id: formData.get("arrival_id"),
+        outbound_date: formData.get("outbound_date"),
+        ...commonParams,
+      });
+
+      const res = await fetch(`/api/flights?${params.toString()}`);
+      const data = await res.json();
+      const flights = data.best_flights?.length ? data.best_flights : data.other_flights || [];
+
+      allResultsHTML = flights.length
+        ? renderFlightCards(flights, "One-Way Flights")
+        : "<p>No one-way flights found.</p>";
+
+    } else if (type === "1") {
+      // Two one-way requests for round-trip
+      const outboundParams = new URLSearchParams({
+        type: "2",
+        departure_id: formData.get("departure_id"),
+        arrival_id: formData.get("arrival_id"),
+        outbound_date: formData.get("outbound_date"),
+        ...commonParams,
+      });
+
+      const returnParams = new URLSearchParams({
+        type: "2",
+        departure_id: formData.get("arrival_id"),
+        arrival_id: formData.get("departure_id"),
+        outbound_date: formData.get("return_date"),
+        ...commonParams,
+      });
+
+      const [outRes, returnRes] = await Promise.all([
+        fetch(`/api/flights?${outboundParams}`),
+        fetch(`/api/flights?${returnParams}`),
+      ]);
+
+      const outData = await outRes.json();
+      const returnData = await returnRes.json();
+
+      const outFlights = outData.best_flights?.length ? outData.best_flights : outData.other_flights || [];
+      const returnFlights = returnData.best_flights?.length ? returnData.best_flights : returnData.other_flights || [];
+
+      allResultsHTML =
+        renderFlightCards(outFlights, "Outbound Flight") +
+        renderFlightCards(returnFlights, "Return Flight");
     }
 
-    const data = await res.json();
-    console.log("→ Received:", data);
+    results.innerHTML = allResultsHTML || "<p>No flights found.</p>";
+  } catch (err) {
+    console.error("✖ Fetch failed:", err);
+    results.innerHTML = "<p class='text-red-500'>Error fetching flight data.</p>";
+  }
+});
 
-    const flights = data.best_flights?.length
-      ? data.best_flights
-      : data.other_flights?.length
-        ? data.other_flights
-        : [];
-
-    if (flights.length === 0) {
-      results.innerHTML = "<p class='text-gray-600'>No flights found for the selected route and dates.</p>";
-      return;
-    }
-
-    results.innerHTML = flights.map((flight) => {
+function renderFlightCards(flights, heading = "") {
+  if (!flights.length) return "";
+  return `
+    <h2 class="text-xl font-semibold my-4">${heading}</h2>
+    ${flights.map((flight) => {
       const f = flight.flights[0];
       return `
         <div class="p-4 border rounded shadow mb-4">
@@ -68,9 +114,6 @@ form.addEventListener("submit", async (e) => {
           <p>Duration: ${flight.total_duration} min | Price: £${flight.price}</p>
         </div>
       `;
-    }).join("");
-  } catch (err) {
-    results.innerHTML = "<p class='text-red-500'>Error fetching flight data.</p>";
-    console.error("✖ Fetch failed:", err);
-  }
-});
+    }).join("")}
+  `;
+}
