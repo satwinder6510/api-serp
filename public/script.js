@@ -83,7 +83,7 @@ document.addEventListener("DOMContentLoaded", () => {
           ...commonParams,
         });
 
-        // 👇 Do NOT encode JSON string
+        // ✅ Send raw JSON (not encoded!)
         params.append("multi_city_json", JSON.stringify(multiCity));
 
         const res = await fetch(`/api/flights?${params.toString()}`);
@@ -112,7 +112,6 @@ document.addEventListener("DOMContentLoaded", () => {
           : "<p>No one-way flights found.</p>";
 
       } else if (type === "1") {
-        // Round-trip via two one-way requests
         const outboundParams = new URLSearchParams({
           type: "2",
           departure_id: formData.get("departure_id"),
@@ -156,7 +155,7 @@ document.addEventListener("DOMContentLoaded", () => {
     radio.addEventListener("change", (e) => renderTripFields(e.target.value))
   );
 
-  renderTripFields("2"); // default to One-Way
+  renderTripFields("2"); // Default to One-Way
 
   function renderFlightCards(flights, heading = "") {
     if (!flights.length) return "";
