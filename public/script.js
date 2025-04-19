@@ -78,7 +78,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       }
       params.append("type", "3");
-      params.append("multi_city_json", JSON.stringify(multiCity)); // ✅ NO ENCODE
+      params.append("multi_city_json", JSON.stringify(multiCity)); // ✅ Only once
     } else {
       for (const [key, val] of formData.entries()) {
         params.append(key, val);
@@ -91,10 +91,16 @@ document.addEventListener("DOMContentLoaded", () => {
     try {
       const res = await fetch(url);
       const data = await res.json();
-      const flights = data.best_flights?.length ? data.best_flights : data.other_flights;
+      console.log("→ Received:", data);
 
-      if (!flights || flights.length === 0) {
-        results.innerHTML = "<p>No flights found.</p>";
+      const flights = data.best_flights?.length
+        ? data.best_flights
+        : data.other_flights?.length
+          ? data.other_flights
+          : [];
+
+      if (flights.length === 0) {
+        results.innerHTML = "<p class='text-gray-600'>No flights found for the selected route and dates.</p>";
         return;
       }
 
@@ -111,7 +117,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }).join("");
     } catch (err) {
       results.innerHTML = "<p class='text-red-500'>Error fetching flight data.</p>";
-      console.error(err);
+      console.error("✖ Error:", err);
     }
   });
 });
