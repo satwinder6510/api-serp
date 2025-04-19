@@ -6,6 +6,11 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: "Missing SERPAPI_KEY in environment." });
   }
 
+  // ✅ Decode multi_city_json before forwarding
+  if (query.multi_city_json) {
+    query.multi_city_json = decodeURIComponent(query.multi_city_json);
+  }
+
   const params = new URLSearchParams({
     ...query,
     engine: 'google_flights',
