@@ -80,15 +80,17 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const params = new URLSearchParams({
           type: "3",
+          multi_city_json: JSON.stringify(multiCity),
           ...commonParams,
         });
 
-        // ✅ Send raw JSON (not encoded!)
-        params.append("multi_city_json", JSON.stringify(multiCity));
-
         const res = await fetch(`/api/flights?${params.toString()}`);
         const data = await res.json();
-        const flights = data.best_flights?.length ? data.best_flights : data.other_flights || [];
+        console.log("🧾 Multi-city response:", data);
+
+        const best = Array.isArray(data.best_flights) ? data.best_flights : [];
+        const other = Array.isArray(data.other_flights) ? data.other_flights : [];
+        const flights = best.length > 0 ? best : other;
 
         allResultsHTML = flights.length
           ? renderFlightCards(flights, "Multi-City Itinerary")
@@ -155,7 +157,7 @@ document.addEventListener("DOMContentLoaded", () => {
     radio.addEventListener("change", (e) => renderTripFields(e.target.value))
   );
 
-  renderTripFields("2"); // Default to One-Way
+  renderTripFields("2"); // default to One-Way
 
   function renderFlightCards(flights, heading = "") {
     if (!flights.length) return "";
