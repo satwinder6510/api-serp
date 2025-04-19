@@ -92,7 +92,6 @@ document.addEventListener("DOMContentLoaded", () => {
       const res = await fetch(`/api/flights?${params.toString()}`);
       const data = await res.json();
 
-      // ✅ Use best_flights first, fallback to other_flights
       const flights = data.best_flights?.length ? data.best_flights : data.other_flights;
 
       if (!flights || flights.length === 0) {
@@ -100,26 +99,53 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
-      results.innerHTML = flights.map((flight) => {
-        return `
-          <div class="p-4 border rounded shadow space-y-2">
-            ${flight.flights.map((f, i) => `
+      results.innerHTML = "";
+      for (const flight of flights) {
+        const token = flight.booking_token;
+
+        // Outbound rendering
+        const outbound = flight.flights.map((f, i) => `
+          <div class="border-b pb-2">
+            <p class="font-semibold">${i === 0 ? "Outbound Flight" : "Segment"}</p>
+            <p><strong>${f.airline}</strong> (${f.flight_number}) - ${f.airplane || "–"}</p>
+            <p>${f.departure_airport.name} → ${f.arrival_airport.name}</p>
+            <p>Departs: ${f.departure_airport.time}, Arrives: ${f.arrival_airport.time}</p>
+          </div>
+        `).join("");
+
+        const card = document.createElement("div");
+        card.className = "p-4 border rounded shadow space-y-2 mb-4";
+        card.innerHTML = outbound + `<p class="text-sm italic text-gray-500">Fetching return flight...</p>`;
+        results.appendChild(card);
+
+        // 🔁 Fetch return leg via backend
+        if (type === "1") {
+          const retRes = await fetch(`/api/flights?booking_token=${encodeURIComponent(token)}`);
+          const retData = await retRes.json();
+          const returnFlight = retData.return_flights?.[0];
+
+          if (returnFlight) {
+            const returnSegs = returnFlight.flights.map((f, i) => `
               <div class="border-b pb-2">
-                <p class="font-semibold">${i === 0 ? "Outbound" : "Return"} Flight</p>
-                <p><strong>${f.airline}</strong> (${f.flight_number}) - ${f.airplane}</p>
+                <p class="font-semibold">${i === 0 ? "Return Flight" : "Segment"}</p>
+                <p><strong>${f.airline}</strong> (${f.flight_number}) - ${f.airplane || "–"}</p>
                 <p>${f.departure_airport.name} → ${f.arrival_airport.name}</p>
                 <p>Departs: ${f.departure_airport.time}, Arrives: ${f.arrival_airport.time}</p>
               </div>
-            `).join("")}
-            <p class="mt-2">Total Duration: ${flight.total_duration} min</p>
-            <p class="font-bold text-green-700">Price: £${flight.price}</p>
-          </div>
-        `;
-      }).join("");
+            `).join("");
+
+            card.innerHTML = outbound + returnSegs + `<p class="font-bold text-green-700">Price: £${flight.price}</p>`;
+          } else {
+            card.innerHTML = outbound + `<p class="text-gray-500">Return flight not found.</p>`;
+          }
+        } else {
+          card.innerHTML = outbound + `<p class="font-bold text-green-700">Price: £${flight.price}</p>`;
+        }
+      }
 
     } catch (err) {
-      results.innerHTML = "<p>Error fetching flight data.</p>";
-      console.error(err);
+      console.error("Fetch error:", err);
+      results.innerHTML = "<p class='text-red-500'>Error fetching flight data.</p>";
     }
   });
 });
