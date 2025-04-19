@@ -2,7 +2,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const form = document.getElementById("searchForm");
   const tripFields = document.getElementById("tripFields");
   const results = document.getElementById("results");
-  let multiCityLegs = [0];
+  let multiCityLegs = [0, 1]; // start with two legs
 
   function createLegInput(index) {
     return `
@@ -36,15 +36,21 @@ document.addEventListener("DOMContentLoaded", () => {
         </div>
       `;
     } else if (type === "3") {
-      multiCityLegs = [0];
+      // Multi-City: render two legs initially
+      multiCityLegs = [0, 1];
       tripFields.innerHTML = `
-        <div id="multiCityContainer">${createLegInput(0)}</div>
+        <div id="multiCityContainer">
+          ${createLegInput(0)}
+          ${createLegInput(1)}
+        </div>
         <button type="button" id="addLeg" class="text-sm text-blue-600 mt-2 underline">+ Add Leg</button>
       `;
       document.getElementById("addLeg").onclick = () => {
         const newIndex = multiCityLegs.length;
         multiCityLegs.push(newIndex);
-        document.getElementById("multiCityContainer").insertAdjacentHTML("beforeend", createLegInput(newIndex));
+        document
+          .getElementById("multiCityContainer")
+          .insertAdjacentHTML("beforeend", createLegInput(newIndex));
       };
     }
   }
@@ -53,7 +59,6 @@ document.addEventListener("DOMContentLoaded", () => {
     e.preventDefault();
     const formData = new FormData(form);
     const type = formData.get("type");
-
     results.innerHTML = "Loading...";
 
     const commonParams = {
@@ -68,19 +73,16 @@ document.addEventListener("DOMContentLoaded", () => {
       let allResultsHTML = "";
 
       if (type === "3") {
-        const multiCity = [];
-        for (const index of multiCityLegs) {
-          const from = formData.get(`multi_departure_${index}`);
-          const to = formData.get(`multi_arrival_${index}`);
-          const date = formData.get(`multi_date_${index}`);
-          if (from && to && date) {
-            multiCity.push({ departure_id: from, arrival_id: to, date });
-          }
-        }
+        // Build multi-city payload
+        const multiCity = multiCityLegs.map((idx) => ({
+          departure_id: formData.get(`multi_departure_${idx}`),
+          arrival_id: formData.get(`multi_arrival_${idx}`),
+          date: formData.get(`multi_date_${idx}`),
+        })).filter(leg => leg.departure_id && leg.arrival_id && leg.date);
 
         const params = new URLSearchParams({
           type: "3",
-          multi_city_json: JSON.stringify(multiCity),
+          multi_city_json: JSON.stringify(multiCity), // raw JSON
           ...commonParams,
         });
 
@@ -97,6 +99,7 @@ document.addEventListener("DOMContentLoaded", () => {
           : "<p>No multi-city flights found.</p>";
 
       } else if (type === "2") {
+        // One-Way
         const params = new URLSearchParams({
           type: "2",
           departure_id: formData.get("departure_id"),
@@ -114,6 +117,7 @@ document.addEventListener("DOMContentLoaded", () => {
           : "<p>No one-way flights found.</p>";
 
       } else if (type === "1") {
+        // Round-Trip as two one-way calls
         const outboundParams = new URLSearchParams({
           type: "2",
           departure_id: formData.get("departure_id"),
@@ -121,7 +125,6 @@ document.addEventListener("DOMContentLoaded", () => {
           outbound_date: formData.get("outbound_date"),
           ...commonParams,
         });
-
         const returnParams = new URLSearchParams({
           type: "2",
           departure_id: formData.get("arrival_id"),
@@ -134,7 +137,6 @@ document.addEventListener("DOMContentLoaded", () => {
           fetch(`/api/flights?${outboundParams}`),
           fetch(`/api/flights?${returnParams}`),
         ]);
-
         const outData = await outRes.json();
         const returnData = await returnRes.json();
 
@@ -153,17 +155,20 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  form.type.forEach((radio) =>
-    radio.addEventListener("change", (e) => renderTripFields(e.target.value))
+  // Wire up trip type radio buttons
+  form.type.forEach(radio =>
+    radio.addEventListener("change", e => renderTripFields(e.target.value))
   );
 
-  renderTripFields("2"); // default to One-Way
+  // Initial render: default to One-Way
+  renderTripFields("2");
 
+  // Helper to render flight cards
   function renderFlightCards(flights, heading = "") {
     if (!flights.length) return "";
     return `
       <h2 class="text-xl font-semibold my-4">${heading}</h2>
-      ${flights.map((flight) => {
+      ${flights.map(flight => {
         const f = flight.flights[0];
         return `
           <div class="p-4 border rounded shadow mb-4">
