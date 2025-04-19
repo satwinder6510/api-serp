@@ -27,7 +27,7 @@ document.addEventListener("DOMContentLoaded", () => {
         </div>
         <input name="outbound_date" type="date" class="w-full border p-2 rounded" required />
       `;
-    } else if (type === "2") {
+    } else if (type === "1") {
       // Round‑Trip
       tripFields.innerHTML = `
         <div class="flex gap-4">
@@ -77,7 +77,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // Build our query params
     const params = new URLSearchParams({ type, ...common });
 
-    if (type === "1") {
+    if (type === "2") {
       // One‑Way
       params.append("departure_id", formData.get("departure_id"));
       params.append("arrival_id",   formData.get("arrival_id"));
