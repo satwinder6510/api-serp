@@ -36,6 +36,7 @@ document.addEventListener("DOMContentLoaded", () => {
         </div>
       `;
     } else {
+      // Multi‑City
       multiCityLegs = [0, 1];
       tripFields.innerHTML = `
         <div id="multiCityContainer">
@@ -57,7 +58,14 @@ document.addEventListener("DOMContentLoaded", () => {
   form.addEventListener("submit", async e => {
     e.preventDefault();
     const formData = new FormData(form);
-    const type = formData.get("type");
+
+    // Auto‑detect return searches
+    let type = formData.get("type");                // "1", "2", or "3"
+    if (formData.get("return_date")) {
+      type = "1";
+      console.warn("Detected return_date → forcing type=1 (Round‑Trip)");
+    }
+
     results.innerHTML = "Loading…";
 
     const common = {
@@ -71,17 +79,20 @@ document.addEventListener("DOMContentLoaded", () => {
     const params = new URLSearchParams({ type, ...common });
 
     if (type === "2") {
+      // One‑Way
       params.append("departure_id", formData.get("departure_id"));
       params.append("arrival_id",   formData.get("arrival_id"));
       params.append("outbound_date", formData.get("outbound_date"));
-    } 
-    else if (type === "1") {
+
+    } else if (type === "1") {
+      // Round‑Trip
       params.append("departure_id",  formData.get("departure_id"));
       params.append("arrival_id",    formData.get("arrival_id"));
       params.append("outbound_date", formData.get("outbound_date"));
       params.append("return_date",   formData.get("return_date"));
-    } 
-    else {
+
+    } else {
+      // Multi‑City
       const legs = multiCityLegs
         .map(i => ({
           departure_id: formData.get(`multi_departure_${i}`),
@@ -89,7 +100,6 @@ document.addEventListener("DOMContentLoaded", () => {
           date:         formData.get(`multi_date_${i}`)
         }))
         .filter(l => l.departure_id && l.arrival_id && l.date);
-
       params.append("multi_city_json", JSON.stringify(legs));
     }
 
@@ -97,7 +107,7 @@ document.addEventListener("DOMContentLoaded", () => {
     console.log("→ Fetching", url);
 
     try {
-      const res = await fetch(url);
+      const res  = await fetch(url);
       const data = await res.json();
       console.log("← Response:", data);
 
@@ -111,41 +121,41 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       results.innerHTML = flights.length
-        ? renderFlightCards(flights,
+        ? renderFlightCards(flights, 
             type === "1" ? "Round‑Trip Results" :
             type === "2" ? "One‑Way Flights" :
-            "Multi‑City Itinerary")
+                           "Multi‑City Itinerary")
         : `<p>No ${type === "3" ? "multi‑city" : type === "1" ? "return‑trip" : "one‑way"} flights found.</p>`;
+
     } catch (err) {
       console.error("✖ Fetch failed:", err);
       results.innerHTML = "<p class='text-red-500'>Error fetching flight data.</p>";
     }
   });
 
+  // Wire up radio buttons & initial render
   form.querySelectorAll('input[name="type"]').forEach(r =>
     r.addEventListener("change", e => renderTripFields(e.target.value))
   );
   renderTripFields("2");
 
-  // —— UPDATED RENDER FUNCTION ——
+  // Improved renderer that shows all legs per flight
   function renderFlightCards(flights, heading = "") {
     if (!flights.length) return "";
     return `
       <h2 class="text-xl font-semibold my-4">${heading}</h2>
       ${flights.map(flight => {
-        // iterate **all** legs now
-        const segmentHTML = flight.flights.map((leg, idx) => `
+        const segments = flight.flights.map((leg, i) => `
           <div class="mb-2">
-            <p><strong>Leg ${idx+1}: ${leg.airline} ${leg.flight_number}</strong></p>
+            <p><strong>Leg ${i+1}: ${leg.airline} ${leg.flight_number}</strong></p>
             <p>${leg.departure_airport.name} → ${leg.arrival_airport.name}</p>
             <p>Departs: ${leg.departure_airport.time}, Arrives: ${leg.arrival_airport.time}</p>
             <p>Flight Duration: ${leg.duration} min</p>
           </div>
         `).join("");
-
         return `
           <div class="p-4 border rounded shadow mb-4">
-            ${segmentHTML}
+            ${segments}
             <p><strong>Total Duration:</strong> ${flight.total_duration} min</p>
             <p><strong>Price:</strong> £${flight.price}</p>
           </div>
