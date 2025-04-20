@@ -68,108 +68,30 @@ document.addEventListener("DOMContentLoaded", () => {
       let allResultsHTML = "";
 
       if (type === "3") {
-        const multiCity = [];
+        const flightCards = [];
         for (const index of multiCityLegs) {
           const from = formData.get(`multi_departure_${index}`);
           const to = formData.get(`multi_arrival_${index}`);
           const date = formData.get(`multi_date_${index}`);
           if (from && to && date) {
-            multiCity.push({ departure_id: from, arrival_id: to, date });
+            const params = new URLSearchParams({
+              type: "2",
+              departure_id: from,
+              arrival_id: to,
+              outbound_date: date,
+              ...commonParams,
+            });
+            const res = await fetch(`/api/flights?${params.toString()}`);
+            const data = await res.json();
+            const flights = data.best_flights?.length ? data.best_flights : data.other_flights || [];
+            if (flights.length) {
+              flightCards.push(renderFlightCards(flights, `${from} → ${to} on ${date}`));
+            } else {
+              flightCards.push(`<p>No flights found for ${from} → ${to} on ${date}</p>`);
+            }
           }
         }
-
-        const params = new URLSearchParams({
-          type: "3",
-          multi_city_json: JSON.stringify(multiCity),
-          ...commonParams,
-        });
-
-        const res = await fetch(`/api/flights?${params.toString()}`);
-        const data = await res.json();
-        const flights = data.best_flights?.length ? data.best_flights : data.other_flights || [];
-
-        allResultsHTML = flights.length
-          ? renderFlightCards(flights, "Multi-City Itinerary")
-          : "<p>No multi-city flights found.</p>";
-
-      } else if (type === "2") {
-        const params = new URLSearchParams({
-          type: "2",
-          departure_id: formData.get("departure_id"),
-          arrival_id: formData.get("arrival_id"),
-          outbound_date: formData.get("outbound_date"),
-          ...commonParams,
-        });
-
-        const res = await fetch(`/api/flights?${params.toString()}`);
-        const data = await res.json();
-        const flights = data.best_flights?.length ? data.best_flights : data.other_flights || [];
-
-        allResultsHTML = flights.length
-          ? renderFlightCards(flights, "One-Way Flights")
-          : "<p>No one-way flights found.</p>";
-
-      } else if (type === "1") {
-        const outboundParams = new URLSearchParams({
-          type: "2",
-          departure_id: formData.get("departure_id"),
-          arrival_id: formData.get("arrival_id"),
-          outbound_date: formData.get("outbound_date"),
-          ...commonParams,
-        });
-
-        const returnParams = new URLSearchParams({
-          type: "2",
-          departure_id: formData.get("arrival_id"),
-          arrival_id: formData.get("departure_id"),
-          outbound_date: formData.get("return_date"),
-          ...commonParams,
-        });
-
-        const [outRes, returnRes] = await Promise.all([
-          fetch(`/api/flights?${outboundParams}`),
-          fetch(`/api/flights?${returnParams}`),
-        ]);
-
-        const outData = await outRes.json();
-        const returnData = await returnRes.json();
-
-        const outFlights = outData.best_flights?.length ? outData.best_flights : outData.other_flights || [];
-        const returnFlights = returnData.best_flights?.length ? returnData.best_flights : returnData.other_flights || [];
-
-        const pairs = [];
-        for (const out of outFlights) {
-          for (const ret of returnFlights) {
-            pairs.push({ out, ret, total: out.price + ret.price });
-          }
-        }
-
-        if (pairs.length === 0) {
-          results.innerHTML = "<p>No round-trip combinations found.</p>";
-          return;
-        }
-
-        pairs.sort((a, b) => a.total - b.total);
-
-        allResultsHTML = pairs.map(({ out, ret, total }) => {
-          const o = out.flights[0];
-          const r = ret.flights[0];
-          return `
-            <div class="p-4 border rounded shadow mb-6 bg-white">
-              <p class="font-semibold text-lg text-indigo-600">Total: £${total}</p>
-              <div class="mt-2">
-                <p class="font-semibold">Outbound: ${o.airline} (${o.flight_number})</p>
-                <p>${o.departure_airport.name} → ${o.arrival_airport.name}</p>
-                <p>${o.departure_airport.time} → ${o.arrival_airport.time}</p>
-              </div>
-              <div class="mt-2">
-                <p class="font-semibold">Return: ${r.airline} (${r.flight_number})</p>
-                <p>${r.departure_airport.name} → ${r.arrival_airport.name}</p>
-                <p>${r.departure_airport.time} → ${r.arrival_airport.time}</p>
-              </div>
-            </div>
-          `;
-        }).join("");
+        allResultsHTML = flightCards.join("");
       }
 
       results.innerHTML = allResultsHTML || "<p>No flights found.</p>";
@@ -193,7 +115,7 @@ function renderFlightCards(flights, heading = "") {
     ${flights.map((flight) => {
       const f = flight.flights[0];
       return `
-        <div class="p-4 border rounded shadow mb-4">
+        <div class="p-4 border rounded shadow mb-4 bg-white">
           <p><strong>${f.airline}</strong> (${f.flight_number}) - ${f.airplane || "–"}</p>
           <p>${f.departure_airport.name} → ${f.arrival_airport.name}</p>
           <p>Departs: ${f.departure_airport.time}, Arrives: ${f.arrival_airport.time}</p>
